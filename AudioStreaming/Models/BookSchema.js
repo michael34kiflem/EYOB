@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 const ChapterSchema = new mongoose.Schema({
   title: { type: String, required: true },
   chapteruri : {type : String , required : true} ,
-  duration: { type: Number , required: true } 
+  duration: { type: Number , required: true } ,
+  time : { type: String, required: true }
 });
 
 const audioBookSchema = new mongoose.Schema({
@@ -13,6 +14,7 @@ const audioBookSchema = new mongoose.Schema({
   description: { type: String},
   rating : { type: Number, min: 0, max: 5  , default: 4.5},
   reviews : { type: Number, default: 0 },
+  gradient: { type: String }, // Array of color strings for gradient
   publishDate: { type: Date },
   language: { type: String },
   sampleAudio: { type: String },

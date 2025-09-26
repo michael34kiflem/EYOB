@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import asyncHandler from 'express-async-handler';
 import User from '../userModel/userModel.js'
 import dotenv from 'dotenv'
-
+import {sendPasswordReset} from '../../middleware/sendPasswordResetEmail.js'
+import {sendWelcomeEmail} from '../../middleware/NewCustomerEmail.js'
 dotenv.config()
 const userRoute = express.Router()
 
@@ -92,7 +93,9 @@ const registerUser = asyncHandler(async (req, res) => {
             token: newToken,
             phone:user.phone ,
           
-        });
+        }); 
+
+        sendWelcomeEmail({ email: user.email, name: user.name })
 
     } catch (error) {
         console.error('Registration error:', error);
@@ -191,9 +194,108 @@ const updateProfilePicture = async (req, res) => {
   }
 };
 
+
+
+
+
+const otpStore = new Map();
+
+const passwordResetRequest = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+      
+    try {
+        const user = await User.findOne({email: email});
+        if (!user) {
+            return res.status(404).json({message : 'User not found in our database.'});
+        }
+        
+        // Generate new OTP for each request
+        const OTP = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Store OTP with user's email and expiration (5 minutes)
+        otpStore.set(email, {
+            otp: OTP,
+            expiresAt: Date.now() + 300000 // 5 minutes
+        });
+        
+        await sendPasswordReset({ email: user.email, name: user.name, OTP: OTP });
+        res.status(200).json({ message: `A recovery email has been sent to ${email}` });
+    } catch (error) {
+        console.error('Error during password reset:', error);
+        res.status(500).json({message :'Internal server error. Please try again later.'});
+    }
+});
+
+
+const verifyOTP = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+    
+    try {
+        const otpData = otpStore.get(email);
+
+        console.log(otpData)
+        
+        if (!otpData || otpData.otp !== otp) {
+            return res.status(400).json({message :'Invalid OTP'});
+        }
+        
+        if (Date.now() > otpData.expiresAt) {
+            otpStore.delete(email);
+            return res.status(400).json({message :'OTP has expired'});
+        }
+        
+        
+        const token = jwt.sign(
+            { id: email }, 
+            process.env.TOKEN_SECRET,
+            { expiresIn: '15m' }
+        );
+        
+        
+        otpStore.delete(email);
+        
+        res.status(200).json({ token });
+    } catch (error) {
+        console.error('Error during OTP verification:', error);
+        res.status(500).json({message :'Internal server error. Please try again later.'});
+    }
+});
+
+const passwordReset = asyncHandler(async (req, res) => {
+    const { token,newPassword } = req.body;
+    
+    try {
+        const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+        const user = await User.findOne({ email: decoded.id });
+        
+        if (!user) {
+            return res.status(404).json({message : 'User not found'});
+        }
+        
+        user.password = newPassword;
+        await user.save();
+        
+        res.status(200).json({ message: 'Password has been successfully updated' });
+    } catch (error) {
+        console.error('Error during password reset:', error);
+        res.status(401).json({message :'Password reset failed. Token may be invalid or expired.'});
+    }
+});
+
+
+
+
+
+
+
+
+
 userRoute.route('/login').post(loginUser);
 userRoute.route('/register').post(registerUser);
 userRoute.route('/profilepicture').put(updateProfilePicture);
+userRoute.route('/password-reset-request').post(passwordResetRequest);
+userRoute.route('/verify-otp').post(verifyOTP);
+userRoute.route('/password-reset').post(passwordReset);
 userRoute.route('/editUserDetails').put(editUserDetails);
 userRoute.route('/editProfile').put(editProfile);
 
