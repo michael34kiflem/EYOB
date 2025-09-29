@@ -3,6 +3,53 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Configure transporter with timeout and retry settings
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.SMTP_USER || 'ureadwith@gmail.com',
+      pass: process.env.SMTP_PASS, // Use environment variable for security
+    },
+    // Connection timeout settings
+    connectionTimeout: 30000, // 30 seconds
+    socketTimeout: 30000,     // 30 seconds
+    greetingTimeout: 30000,   // 30 seconds
+    // Retry configuration
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+  });
+};
+
+// Retry mechanism for sending emails
+const sendWithRetry = async (transporter, mailOptions, maxRetries = 3) => {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Attempt ${attempt} to send password reset email to ${mailOptions.to}`);
+      
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`Password reset email sent successfully to ${mailOptions.to}`, info.messageId);
+      return info;
+      
+    } catch (error) {
+      lastError = error;
+      console.warn(`Attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        // Exponential backoff before retrying
+        const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw new Error(`Failed to send email after ${maxRetries} attempts: ${lastError.message}`);
+};
+
 export const sendPasswordReset = async ({ email, name, OTP }) => {
     const html = `
       <html>
@@ -45,26 +92,40 @@ export const sendPasswordReset = async ({ email, name, OTP }) => {
     `;
 
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-              auth: {
-               user: 'ureadwith@gmail.com',
-               pass: 'tznt ceqj aehf lhmb',
-             }
-        }); 
-
+        const transporter = createTransporter();
+        
         const mailOptions = {
           from: 'AudioBook Stream <ureadwith@gmail.com>',
           to: email,
           subject: 'Password Reset Request - AudioBook Stream',
           html: html,
+          // Add priority header
+          headers: {
+            'X-Priority': '1',
+            'X-MSMail-Priority': 'High',
+            'Importance': 'high'
+          }
         };
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`Password reset email sent to ${email}`, info.messageId);
+        const info = await sendWithRetry(transporter, mailOptions);
+        console.log(`Password reset email delivered to ${email}`, info.messageId);
         return true;
+        
     } catch (error) {
-        console.error('Error sending password reset email:', error);
-        throw new Error('Failed to send password reset email');
+        console.error(`Error sending password reset email to ${email}:`, error);
+        throw new Error(`Failed to send password reset email: ${error.message}`);
     }
+};
+
+// Optional: Verify SMTP connection on startup
+export const verifyEmailConnection = async () => {
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+    console.log('SMTP connection verified successfully');
+    return true;
+  } catch (error) {
+    console.error('SMTP connection failed:', error.message);
+    return false;
+  }
 };

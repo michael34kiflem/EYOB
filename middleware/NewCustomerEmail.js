@@ -3,6 +3,53 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Reuse the same transporter configuration
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.SMTP_USER || 'ureadwith@gmail.com',
+      pass: process.env.SMTP_PASS, // Use environment variable for security
+    },
+    // Connection timeout settings
+    connectionTimeout: 30000, // 30 seconds
+    socketTimeout: 30000,     // 30 seconds
+    greetingTimeout: 30000,   // 30 seconds
+    // Retry configuration
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+  });
+};
+
+// Reuse the same retry mechanism
+const sendWithRetry = async (transporter, mailOptions, maxRetries = 3) => {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Attempt ${attempt} to send welcome email to ${mailOptions.to}`);
+      
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`Welcome email sent successfully to ${mailOptions.to}`, info.messageId);
+      return info;
+      
+    } catch (error) {
+      lastError = error;
+      console.warn(`Attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        // Exponential backoff before retrying
+        const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw new Error(`Failed to send welcome email after ${maxRetries} attempts: ${lastError.message}`);
+};
+
 export const sendWelcomeEmail = async ({ email, name }) => {
     const html = `
       <html>
@@ -53,7 +100,7 @@ export const sendWelcomeEmail = async ({ email, name }) => {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://yourapp.com/dashboard" style="background: linear-gradient(135deg, #F74F22 0%, #ff6b4a 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 16px;">
+              <a href="${process.env.APP_URL || 'https://yourapp.com'}/dashboard" style="background: linear-gradient(135deg, #F74F22 0%, #ff6b4a 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 16px;">
                 Start Listening Now
               </a>
             </div>
@@ -76,26 +123,27 @@ export const sendWelcomeEmail = async ({ email, name }) => {
     `;
 
     try {
-    const transporter = nodemailer.createTransport({
-             service: 'gmail',
-             auth: {
-               user: 'ureadwith@gmail.com',
-               pass: 'tznt ceqj aehf lhmb',
-             }
-         }); 
-
+        const transporter = createTransporter();
+        
         const mailOptions = {
           from: 'AudioBook Stream <ureadwith@gmail.com>',
           to: email,
           subject: 'Welcome to AudioBook Stream! Start Your Listening Journey',
           html: html,
+          // Add priority headers for better delivery
+          headers: {
+            'X-Priority': '1',
+            'X-MSMail-Priority': 'High',
+            'Importance': 'high'
+          }
         };
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`Welcome email sent to ${email}`, info.messageId);
+        const info = await sendWithRetry(transporter, mailOptions);
+        console.log(`Welcome email delivered to ${email}`, info.messageId);
         return true;
+        
     } catch (error) {
-        console.error('Error sending welcome email:', error);
-        throw new Error('Failed to send welcome email');
+        console.error(`Error sending welcome email to ${email}:`, error);
+        throw new Error(`Failed to send welcome email: ${error.message}`);
     }
 };
