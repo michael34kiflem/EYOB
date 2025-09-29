@@ -76,13 +76,13 @@ export const sendWelcomeEmail = async ({ email, name }) => {
     `;
 
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-              user: process.env.User_Name,
-              pass: process.env.Email_Auth,
-            }
-        });
+    const transporter = nodemailer.createTransport({
+             service: 'gmail',
+             auth: {
+               user: process.env.User_Name,
+               pass: process.env.Email_Auth,
+             }
+         }); 
 
         const mailOptions = {
           from: 'AudioBook Stream <ureadwith@gmail.com>',
