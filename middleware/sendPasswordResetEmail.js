@@ -46,12 +46,25 @@ export const sendPasswordReset = async ({ email, name, OTP }) => {
 
     try {
         const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.User_Name,
+          pass: process.env.Email_Auth
+        },
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 10000
+      });
+   {/*     const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
-              user: 'ureadwith@gmail.com',
-              pass: 'tznt ceqj aehf lhmb',
+              user: process.env.User_Name,
+              pass: process.env.Email_Auth,
             }
-        });
+        }); */}
 
         const mailOptions = {
           from: 'AudioBook Stream <ureadwith@gmail.com>',
