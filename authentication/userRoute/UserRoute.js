@@ -297,8 +297,8 @@ userRoute.route('/profilepicture').put(updateProfilePicture);
 userRoute.route('/password-reset-request').post(passwordResetRequest);
 userRoute.route('/verify-otp').post(verifyOTP);
 userRoute.route('/password-reset').post(passwordReset);
-userRoute.route('/editUserDetails').put(protect , editUserDetails);
-userRoute.route('/editProfile').put(protect , editProfile);
+userRoute.route('/editUserDetails').put( editUserDetails);
+userRoute.route('/editProfile').put( editProfile);
 
 
 
