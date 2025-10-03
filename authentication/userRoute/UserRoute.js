@@ -5,6 +5,7 @@ import User from '../userModel/userModel.js'
 import dotenv from 'dotenv'
 import {sendPasswordReset} from '../../middleware/sendPasswordResetEmail.js'
 import {sendWelcomeEmail} from '../../middleware/NewCustomerEmail.js'
+import { protect } from "../../middleware/protectRoute.js";
 dotenv.config()
 const userRoute = express.Router()
 
@@ -296,8 +297,8 @@ userRoute.route('/profilepicture').put(updateProfilePicture);
 userRoute.route('/password-reset-request').post(passwordResetRequest);
 userRoute.route('/verify-otp').post(verifyOTP);
 userRoute.route('/password-reset').post(passwordReset);
-userRoute.route('/editUserDetails').put(editUserDetails);
-userRoute.route('/editProfile').put(editProfile);
+userRoute.route('/editUserDetails').put(protect , editUserDetails);
+userRoute.route('/editProfile').put(protect , editProfile);
 
 
 

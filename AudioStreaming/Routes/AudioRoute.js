@@ -338,9 +338,69 @@ const deleteWishlist = async (req, res) => {
     }
 };
 
+const fetchHighRatedBook = async (req, res) => {
+  try {
+    const books = await Audio.find({ rating: { $gte: 4 } }) // Only get books with rating >= 4
+      .sort({ rating: -1, reviews: -1 }) // Sort by rating first, then by number of reviews
+      .limit(10)
+      .select('title author rating reviews artwork duration') // Select only needed fields
+      .lean(); // Returns plain JavaScript objects for better performance
+    
+    if (!books || books.length === 0) {
+      return res.status(404).json({ message: 'No high-rated books found' });
+    }
+    
+    res.json(books);
+  } catch (error) {
+    console.error('Error fetching top rated books:', error);
+    res.status(500).json({ error: 'Failed to fetch high-rated books' });
+  }
+};
+
+const fetchRecentAudios = async (req, res) => {
+  try {
+    const audios = await Audio.find({})
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .limit(10) // Get only the 10 most recent
+      .select('title author createdAt artwork duration narrator')
+      .lean();
+    
+    if (!audios || audios.length === 0) {
+      return res.status(404).json({ message: 'No audios found' });
+    }
+    
+    res.json(audios);
+  } catch (error) {
+    console.error('Error fetching recent audios:', error);
+    res.status(500).json({ error: 'Failed to fetch recent audios' });
+  }
+};
+
+const fetchFocusBooks = async (req, res) => {
+  try {
+    const focusBooks = await Audio.find({ isFocus: true })
+      .limit(10)
+      .select('title author artwork duration description isFocus')
+      .lean();
+    
+    if (!focusBooks || focusBooks.length === 0) {
+      return res.status(404).json({ message: 'No focus books available' });
+    }
+    
+    res.json(focusBooks);
+  } catch (error) {
+    console.error('Error fetching focus books:', error);
+    res.status(500).json({ error: 'Failed to fetch focus books' });
+  }
+};
+
+
 
 
 AudioRoute.route('/all').get(fetchAllAudioBooks)
+AudioRoute.route('/top-rated').get(fetchHighRatedBook)
+AudioRoute.route('/recently-added').get(fetchRecentAudios)
+AudioRoute.route('/focus-books').get(fetchFocusBooks)
 AudioRoute.route('/genre/all').get(fetchingAllGenre)
 AudioRoute.route('/find-book-on-server/:bookId').get(fetchSingleAudioBook)
 AudioRoute.route('/fetching-genre-by-id/:genreId').get(fetchSingleGenre)

@@ -17,6 +17,7 @@ const audioBookSchema = new mongoose.Schema({
   gradient: { type: String }, // Array of color strings for gradient
   publishDate: { type: Date },
   language: { type: String },
+  isFocus : {type: Boolean} ,
   sampleAudio: { type: String },
   publisher: { type: String },
   artwork: { type: String },

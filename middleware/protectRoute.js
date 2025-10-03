@@ -1,8 +1,6 @@
-import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
-import User from "../user/userModel/userModel.js";
-import mongoose from 'mongoose';
-import { Router } from "express";
+import jwt from "jsonwebtoken";
+import User from "../authentication/userModel/userModel.js";
 
 
 
@@ -36,4 +34,5 @@ const admin = (req, res, next) => {
     res.status(403).json({ message: "Not authorized as admin" });
   }
 }
-export { protect , admin};
+export { admin, protect };
+
